@@ -6,3 +6,4 @@ Discover the basics of image processing, learn to manipulate and analyze images,
 With a user-friendly interface and pre-configured environment, you can focus on writing and executing code without the hassle of setup. Unlock the potential of computer vision as you follow along with practical exercises and gain a solid understanding of key concepts.
 
 The OpenCV for Beginners Codespace is your passport to the fascinating world where images and algorithms converge. Ignite your curiosity, sharpen your coding skills, and explore the endless possibilities of computer vision with OpenCV. Happy coding!
+!
