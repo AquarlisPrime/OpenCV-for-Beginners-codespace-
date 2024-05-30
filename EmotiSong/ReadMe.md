@@ -1,4 +1,4 @@
-*Facial Emotion Recognition with Music Recommendation*
+* Facial Emotion Recognition with Music Recommendation *
 **Overview**
 This project integrates facial emotion recognition using a Convolutional Neural Network (CNN) with a music recommendation system powered by Spotify. The application captures real-time video feed from a webcam, detects the user's facial emotion, and recommends music based on the detected emotion. It leverages deep learning and Spotify's API to provide a dynamic and interactive user experience.
 
@@ -14,7 +14,7 @@ Python 3.x
 Required Python libraries: pandas, numpy, opencv-python, tensorflow, keras, Pillow, dotenv, spotipy, scikit-learn
 Spotify developer account for API credentials
 
-# Setup Instructions
+## Setup Instructions
 1. Clone the Repository
 code: git clone https://github.com/yourusername/emotion-music-recommendation.git
 cd emotion-music-recommendation
