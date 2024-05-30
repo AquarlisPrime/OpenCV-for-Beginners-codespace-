@@ -28,7 +28,9 @@ Create a .env file in the project directory with the following contents:
 makefile
 
 SPOTIPY_CLIENT_ID=your_spotify_client_id
+
 SPOTIPY_CLIENT_SECRET=your_spotify_client_secret
+
 SPOTIPY_REDIRECT_URI=your_spotify_redirect_uri
 
 4. Prepare Dataset: kaggle datasets download -d msambare/fer2013
