@@ -5,12 +5,15 @@ This project integrates facial emotion recognition using a Convolutional Neural 
 ### Key Features
 
 Real-time Emotion Detection: Uses a CNN to classify emotions from webcam feed.
+
 Music Recommendation: Recommends and plays songs based on detected emotions using Spotify's API.
+
 User Controls: Includes playback controls for play, pause, next, and previous tracks.
 
 ### Prerequisites
 
 Python 3.x
+
 Required Python libraries: pandas, numpy, opencv-python, tensorflow, keras, Pillow, dotenv, spotipy, scikit-learn
 Spotify developer account for API credentials
 
