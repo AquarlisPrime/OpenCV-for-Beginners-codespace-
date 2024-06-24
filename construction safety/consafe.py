@@ -1,6 +1,7 @@
 !pip install ultralytics
 !pip install -U ipywidgets
 !pip install ffmpeg-python
+
 from ultralytics import YOLO
 import glob
 import os
@@ -21,9 +22,11 @@ from IPython.display import HTML, display, Image
 from base64 import b64encode
 
 dataset_root = '/kaggle/input/construction-site-safety-image-dataset-roboflow/css-data'
+
 for subset_folder in ['train', 'valid', 'test']:
     subset_images = glob.glob(os.path.join(dataset_root, subset_folder, 'images','*.jpg'))
     print(f"Number of {subset_folder} images:", len(subset_images))
+
 # Define augmentation transformations
 aug_transform = A.Compose([
     A.RandomResizedCrop(640, 640, scale=(0.8, 1.0)),
@@ -33,6 +36,7 @@ aug_transform = A.Compose([
     A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ToTensorV2()
 ])
+
 
 # Custom dataset class with augmentation
 class SafetyDataset(Dataset):
@@ -55,7 +59,7 @@ class SafetyDataset(Dataset):
 
         return image, img_path
 
-  # Paths to dataset
+# Paths to dataset
 dataset_root = '/kaggle/input/construction-site-safety-image-dataset-roboflow/css-data'
 train_data_path = os.path.join(dataset_root, 'train')
 valid_data_path = os.path.join(dataset_root, 'valid')
@@ -80,6 +84,7 @@ train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_worker
 valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False, num_workers=4)
 test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
 
+
 # Function to count images in each subset and visualize distribution
 def count_images(dataset_root):
     subsets = ['train', 'valid', 'test']
@@ -102,7 +107,9 @@ sns.barplot(x=list(subset_counts.keys()), y=list(subset_counts.values()))
 plt.title('Distribution of Images in Dataset Subsets')
 plt.xlabel('Subset')
 plt.ylabel('Number of Images')
-plt.show()import random
+plt.show()
+
+import random
 
 # Function to display sample images from each subset
 def display_sample_images(dataset_root, num_images_per_subset=3):
@@ -128,6 +135,7 @@ def display_sample_images(dataset_root, num_images_per_subset=3):
 # Display sample images from each subset
 display_sample_images(dataset_root, num_images_per_subset=3)
 
+
 # Function to analyze class distribution (if annotations are available)
 def analyze_class_distribution(dataset_root):
     subsets = ['train', 'valid', 'test']
@@ -151,6 +159,7 @@ def analyze_class_distribution(dataset_root):
 class_counts = analyze_class_distribution(dataset_root)
 print("Class distribution:")
 print(class_counts)
+
 
 # Visualize class distribution
 plt.figure(figsize=(6, 4))
@@ -203,8 +212,16 @@ yolo_yaml = {
 with open('/kaggle/working/data.yaml', 'w') as file:
     yaml.dump(yolo_yaml, file)
 
-# Start training
-model.train(data='/kaggle/working/data.yaml', epochs=30, batch=32, imgsz=640, name='Construction Safety Gear Detection')
+model.train(data='/kaggle/working/data.yaml', epochs=75, batch=32, imgsz=640, name='Construction Safety Gear Detection')
+
+def plot_confusion_matrix(y_true, y_pred, classes):
+    cm = confusion_matrix(y_true, y_pred, labels=np.arange(len(classes)))
+    plt.figure(figsize=(12, 6))
+    sns.heatmap(cm, annot=True, cmap='Blues', fmt='g', xticklabels=classes, yticklabels=classes)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title('Confusion Matrix')
+    plt.show()
 
 class SafetyDataset(Dataset):
     def __init__(self, root_dir, subset='train', transform=None):
@@ -240,42 +257,91 @@ valid_data_path = os.path.join(dataset_root, 'valid')
 valid_dataset = SafetyDataset(root_dir=valid_data_path, subset='valid', transform=aug_transform)
 valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False, num_workers=4)
 
+# Define detection and annotation function
+def detect_and_annotate(frame, model, class_map, threshold=0.5):
+    # Convert frame to RGB
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-from sklearn.metrics import confusion_matrix
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
+    # Perform detection
+    results = model(rgb_frame)
 
-def evaluate_model(model, data_loader):
-    model.eval()
-    y_true = []
-    y_pred = []
+    # Parse results
+    detections = results.xyxy[0].cpu().numpy()  # Bounding boxes with scores and class IDs
 
-    with torch.no_grad():
-        for images, labels, _ in data_loader:
-            images = images.to(model.device)
-            outputs = model(images)
-            for i, output in enumerate(outputs):
-                pred_labels = output['class'].cpu().numpy()
-                true_labels = labels[i]
+    persons = []
+    protective_gear = []
 
-                y_true.extend(true_labels)
-                y_pred.extend(pred_labels)
+    for detection in detections:
+        x1, y1, x2, y2, score, class_id = detection
+        if score > threshold:
+            label = class_map[int(class_id)]
+            if label == 'Person':
+                persons.append((x1, y1, x2, y2, score, class_id))
+            else:
+                protective_gear.append((x1, y1, x2, y2, score, class_id, label))
 
-    return y_true, y_pred
+    for (x1, y1, x2, y2, score, class_id) in persons:
+        has_safety_gear = False
+        for (gx1, gy1, gx2, gy2, gscore, gclass_id, glabel) in protective_gear:
+            # Check if the protective gear is within the person's bounding box
+            if x1 <= gx1 <= x2 and y1 <= gy1 <= y2:
+                has_safety_gear = True
+                break
 
-# Get true and predicted labels
-y_true, y_pred = evaluate_model(model, valid_loader)
+        color = (0, 255, 0) if has_safety_gear else (0, 0, 255)
+        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+        cv2.putText(frame, f'Person {score:.2f}', (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-# Compute confusion matrix
-conf_matrix = confusion_matrix(y_true, y_pred, labels=list(class_map.keys()))
+    for (x1, y1, x2, y2, score, class_id, label) in protective_gear:
+        color = (0, 255, 0)
+        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+        cv2.putText(frame, f'{label} {score:.2f}', (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-# Plot confusion matrix
-plt.figure(figsize=(10, 8))
-sns.heatmap(conf_matrix, annot=True, fmt='d', xticklabels=list(class_map.values()), yticklabels=list(class_map.values()), cmap='Blues')
-plt.xlabel('Predicted')
-plt.ylabel('True')
-plt.title('Confusion Matrix')
-plt.show()
+    return frame
+
+# Real-time video capture and display
+def main():
+    class_map = {
+        0: 'Hardhat',
+        1: 'Mask',
+        2: 'NO-Hardhat',
+        3: 'NO-Mask',
+        4: 'NO-Safety Vest',
+        5: 'Person',
+        6: 'Safety Cone',
+        7: 'Safety Vest',
+        8: 'machinery',
+        9: 'vehicle'
+    }
+
+    # Initialize video capture
+    cap = cv2.VideoCapture(0)  # Change the index if you have multiple cameras
+
+    if not cap.isOpened():
+        print("Error: Could not open video device.")
+        return
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        # Perform detection and annotation
+        annotated_frame = detect_and_annotate(frame, model, class_map)
+
+        # Display the frame
+        cv2.imshow('Safety Gear Detection', annotated_frame)
+
+        # Break the loop on 'q' key press
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Release the capture and close windows
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
+
+
 
 
